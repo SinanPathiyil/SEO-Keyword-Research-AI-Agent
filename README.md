@@ -14,7 +14,7 @@ Try it here 👉 [Live App](https://sinanpathiyil.app.n8n.cloud/webhook-test/see
    A Groq-hosted LLaMA3 model generates raw keyword suggestions via the n8n HTTP node.
 
 3. **SEO Data Fetch (RapidAPI)**  
-   Each keyword is validated via [SEO Keyword Research API](https://rapidapi.com/data-buyer/api/seo-keyword-research-api/) to fetch:
+   Each keyword is validated via [SEO Keyword Research API]([https://rapidapi.com/data-buyer/api/seo-keyword-research-api/](https://rapidapi.com/chandrVB/api/seo-keyword-research-api/playground/apiendpoint_d99143f6-0625-41d2-953a-fa784ce52895)) to fetch:
    - Monthly search volume
    - Competition index
 
@@ -56,7 +56,7 @@ Try it here 👉 [Live App](https://sinanpathiyil.app.n8n.cloud/webhook-test/see
 - `SEO Keyword Researcher Agent.json`: Complete n8n workflow
 - `input.html`: Frontend UI
 - `Development Plan.pdf`: Design rationale
-- 'assets/' : sample results
+- `assets/` : sample results
 
 ---
 
