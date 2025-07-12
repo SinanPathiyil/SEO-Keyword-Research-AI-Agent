@@ -70,7 +70,8 @@ Here’s an example of the ranked SEO keyword table returned by the agent:
 
 ## 📹 Video Demo
 
-🎥 ![Keyword Output Table](assets/Demo.mp4)
+
+![Watch Demo](/assets/demo.mp4)
 
 ---
 
