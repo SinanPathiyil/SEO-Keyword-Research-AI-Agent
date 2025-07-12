@@ -56,6 +56,15 @@ Try it here 👉 [Live App](https://sinanpathiyil.app.n8n.cloud/webhook-test/see
 - `SEO Keyword Researcher Agent.json`: Complete n8n workflow
 - `input.html`: Frontend UI
 - `Development Plan.pdf`: Design rationale
+- '\assets\result1.png' : sample result
+
+---
+
+## 🖼️ Sample Output
+
+Here’s an example of the ranked SEO keyword table returned by the agent:
+
+![Keyword Output Table](assets/result1.png)
 
 ---
 
