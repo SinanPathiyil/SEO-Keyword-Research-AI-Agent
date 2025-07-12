@@ -3,7 +3,7 @@
 This project is an AI-powered SEO keyword research agent that takes a **single seed keyword** and generates **50 SEO-friendly keyword suggestions** with **high monthly searches** and **low competition**, helping marketers and content creators dominate Google Search results.
 
 ## 🌐 Live Demo
-Try it here 👉 [Live App](https://sinanpathiyil.app.n8n.cloud/webhook-test/seed%20keyword)
+Try it here 👉 [Live App](http://127.0.0.1:5500/input.html)
 
 ## 🧠 How It Works
 
