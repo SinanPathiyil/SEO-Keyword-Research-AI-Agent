@@ -56,7 +56,7 @@ Try it here 👉 [Live App](https://sinanpathiyil.app.n8n.cloud/webhook-test/see
 - `SEO Keyword Researcher Agent.json`: Complete n8n workflow
 - `input.html`: Frontend UI
 - `Development Plan.pdf`: Design rationale
-- '\assets\result1.png' : sample result
+- 'assets/' : sample results
 
 ---
 
