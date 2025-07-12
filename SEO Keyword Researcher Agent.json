@@ -1,0 +1,4941 @@
+{
+  "createdAt": "2025-07-11T10:23:03.018Z",
+  "updatedAt": "2025-07-12T09:33:14.000Z",
+  "id": "4bgKUIx3th3dITJX",
+  "name": "SEO Keyword Researcher",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "seed keyword",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1180,
+        40
+      ],
+      "id": "0206a9f5-545d-4862-94e5-51135f96b412",
+      "name": "Webhook",
+      "webhookId": "e7f55aea-8ffb-4075-920f-fa6bbddb1614"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"Authorization\": \"Bearer gsk_uzw3BFVu-------------------------------------------pXwrfnkJ\",\n  \"Content-Type\": \"application/json\"\n}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3-70b-8192\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an SEO expert.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Give me 50 keyword suggestions related to the seed keyword '{{ $json.body.keyword }}'. Avoid duplicates, and keep them SEO friendly.\"\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -840,
+        -80
+      ],
+      "id": "c5fd198e-e47a-49c9-9d25-984bf17f3872",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get full LLM output\nconst content = $json[\"choices\"][0][\"message\"][\"content\"];\n\n// Only take the part after the first colon\nconst keywordBlock = content.split(':').slice(1).join(':').trim();\n\n// Split each line and clean it\nconst keywords = keywordBlock\n  .split('\\n')\n  .map(line => line.replace(/^\\d+\\.\\s*/, '').trim()) // Remove number prefix like '1. '\n  .filter(Boolean); // Remove empty lines\n\n// Return each keyword as an item\nreturn keywords.map(k => ({ json: { keyword: k } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        -80
+      ],
+      "id": "b67f4352-e849-4009-b432-23f1922c38b3",
+      "name": "Code",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -380,
+        -80
+      ],
+      "id": "3461a400-6d25-4441-9e53-d53d93dc9d3e",
+      "name": "Wait",
+      "webhookId": "b7293f32-3e89-42d2-ac48-08699dc2242a"
+    },
+    {
+      "parameters": {
+        "url": "https://seo-keyword-research-api.p.rapidapi.com/global-volume",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "keyword",
+              "value": "={{ $json.body.keyword }}"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-host",
+              "value": "seo-keyword-research-api.p.rapidapi.com"
+            },
+            {
+              "name": "x-rapidapi-key",
+              "value": "2c56--------------------------------------------f82adbb"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -860,
+        200
+      ],
+      "id": "c6cc1171-54c3-4f30-81ff-25d29dadaa0a",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const relatedKeywords = items[0].json[\"Related Keyword Data (Global)\"];\n\nif (!relatedKeywords || !Array.isArray(relatedKeywords)) {\n  throw new Error(\"No related keyword data found.\");\n}\n\n// STEP 1: Initial Filter (remove dead/zero keywords)\nconst filtered = relatedKeywords.filter(entry =>\n  !(entry.competition_index === 0 && entry.avg_monthly_searches < 100)\n);\n\n// STEP 2: Sort by competition_index ASC, then avg_monthly_searches DESC\nconst sorted = filtered.sort((a, b) => {\n  if (a.competition_index !== b.competition_index) {\n    return a.competition_index - b.competition_index;\n  }\n  return b.avg_monthly_searches - a.avg_monthly_searches;\n});\n\n// STEP 3: Randomly pick 50 from top 100 sorted list\nconst top100 = sorted.slice(0, 100);\n\nfunction getRandomSample(array, size) {\n  const shuffled = [...array];\n  for (let i = shuffled.length - 1; i > 0; i--) {\n    const j = Math.floor(Math.random() * (i + 1));\n    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];\n  }\n  return shuffled.slice(0, size);\n}\n\nconst random50 = getRandomSample(top100, 50);\n\n// STEP 4: Re-sort selected 50 for final output\nconst finalSorted = random50.sort((a, b) => {\n  if (a.competition_index !== b.competition_index) {\n    return a.competition_index - b.competition_index;\n  }\n  return b.avg_monthly_searches - a.avg_monthly_searches;\n});\n\n// STEP 5: Output\nreturn finalSorted.map(entry => ({\n  json: {\n    keyword: entry.keyword,\n    avg_monthly_searches: entry.avg_monthly_searches,\n    competition_index: entry.competition_index\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        200
+      ],
+      "id": "9f456990-3f2b-4b5f-a3f3-21152634d0cd",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -360,
+        200
+      ],
+      "id": "db84d3cf-7446-4a15-ad1a-5b3351d1c42e",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "HTTP Request1": [
+      {
+        "json": {
+          "Global Keyword Data": [
+            {
+              "High CPC": "$6.70",
+              "Low CPC": "$1.01",
+              "avg_monthly_searches": 823000,
+              "competition_index": 8,
+              "competition_value": "LOW",
+              "keyword": "mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 673000,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 673000,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 823000,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 823000,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 823000,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 823000,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 823000,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 823000,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 823000,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 823000,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 823000,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 823000,
+                  "year": 2025
+                }
+              ]
+            }
+          ],
+          "Related Keyword Data (Global)": [
+            {
+              "High CPC": "$6.80",
+              "Low CPC": "$0.87",
+              "avg_monthly_searches": 14800,
+              "competition_index": 11,
+              "competition_value": "LOW",
+              "keyword": "sap mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 18100,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 12100,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 14800,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 14800,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 18100,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 14800,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 18100,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 14800,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$9.67",
+              "Low CPC": "$1.23",
+              "avg_monthly_searches": 1000,
+              "competition_index": 42,
+              "competition_value": "MEDIUM",
+              "keyword": "aveva mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 1600,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 1000,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 1000,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 1000,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 1000,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 1300,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$17.13",
+              "Low CPC": "$2.37",
+              "avg_monthly_searches": 1300,
+              "competition_index": 56,
+              "competition_value": "MEDIUM",
+              "keyword": "tulip mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 1300,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 1300,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 1900,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 1300,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 1600,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 1600,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 1600,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 1600,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$8.34",
+              "Low CPC": "$0.59",
+              "avg_monthly_searches": 320,
+              "competition_index": 56,
+              "competition_value": "MEDIUM",
+              "keyword": "epicor mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 390,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$6.00",
+              "Low CPC": "$1.17",
+              "avg_monthly_searches": 1300,
+              "competition_index": 40,
+              "competition_value": "MEDIUM",
+              "keyword": "siemens mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 1600,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 1300,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 1300,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 1300,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 1000,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 1000,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 1300,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 1300,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 1300,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 1300,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 1000,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$19.08",
+              "Low CPC": "$3.76",
+              "avg_monthly_searches": 210,
+              "competition_index": 41,
+              "competition_value": "MEDIUM",
+              "keyword": "gartner magic quadrant mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 210,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$19.08",
+              "Low CPC": "$3.76",
+              "avg_monthly_searches": 210,
+              "competition_index": 41,
+              "competition_value": "MEDIUM",
+              "keyword": "gartner mes magic quadrant",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 210,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$8.17",
+              "Low CPC": "$1.26",
+              "avg_monthly_searches": 1000,
+              "competition_index": 52,
+              "competition_value": "MEDIUM",
+              "keyword": "ignition mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 590,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 1900,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 3600,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 720,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$15.95",
+              "Low CPC": "$1.63",
+              "avg_monthly_searches": 480,
+              "competition_index": 39,
+              "competition_value": "MEDIUM",
+              "keyword": "plex mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 590,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 480,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 480,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 590,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 480,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 590,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$11.24",
+              "Low CPC": "$2.28",
+              "avg_monthly_searches": 210,
+              "competition_index": 45,
+              "competition_value": "MEDIUM",
+              "keyword": "gartner mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$5.74",
+              "Low CPC": "$0.89",
+              "avg_monthly_searches": 720,
+              "competition_index": 32,
+              "competition_value": "LOW",
+              "keyword": "mes sap",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 590,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 720,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$7.33",
+              "Low CPC": "$0.80",
+              "avg_monthly_searches": 170,
+              "competition_index": 36,
+              "competition_value": "MEDIUM",
+              "keyword": "mes 4.0",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.03",
+              "Low CPC": "$1.96",
+              "avg_monthly_searches": 720,
+              "competition_index": 38,
+              "competition_value": "MEDIUM",
+              "keyword": "infor mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 480,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 590,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 1000,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 720,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$9.91",
+              "Low CPC": "$1.17",
+              "avg_monthly_searches": 480,
+              "competition_index": 47,
+              "competition_value": "MEDIUM",
+              "keyword": "wonderware mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 1600,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 260,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$11.46",
+              "Low CPC": "$2.10",
+              "avg_monthly_searches": 260,
+              "competition_index": 51,
+              "competition_value": "MEDIUM",
+              "keyword": "factorylogix",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 260,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$13.28",
+              "Low CPC": "$2.53",
+              "avg_monthly_searches": 170,
+              "competition_index": 48,
+              "competition_value": "MEDIUM",
+              "keyword": "solumina mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 210,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$14.58",
+              "Low CPC": "$0.82",
+              "avg_monthly_searches": 480,
+              "competition_index": 36,
+              "competition_value": "MEDIUM",
+              "keyword": "critical manufacturing mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 590,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 480,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 480,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 480,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 590,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 480,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$10.61",
+              "Low CPC": "$1.11",
+              "avg_monthly_searches": 170,
+              "competition_index": 42,
+              "competition_value": "MEDIUM",
+              "keyword": "traksys mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 210,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.85",
+              "Low CPC": "$0.65",
+              "avg_monthly_searches": 18100,
+              "competition_index": 36,
+              "competition_value": "MEDIUM",
+              "keyword": "manufacturing mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 18100,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 18100,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 27100,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 22200,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 18100,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 18100,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 18100,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 22200,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 18100,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 18100,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 18100,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$5.17",
+              "Low CPC": "$0.89",
+              "avg_monthly_searches": 390,
+              "competition_index": 43,
+              "competition_value": "MEDIUM",
+              "keyword": "mes siemens",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 480,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 320,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$6.80",
+              "Low CPC": "$0.87",
+              "avg_monthly_searches": 14800,
+              "competition_index": 11,
+              "competition_value": "LOW",
+              "keyword": "sap manufacturing execution",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 18100,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 14800,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 12100,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 14800,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 14800,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 18100,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 14800,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 18100,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 14800,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.40",
+              "Low CPC": "$2.16",
+              "avg_monthly_searches": 1000,
+              "competition_index": 48,
+              "competition_value": "MEDIUM",
+              "keyword": "aegis mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 12100,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 140,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$21.11",
+              "Low CPC": "$4.62",
+              "avg_monthly_searches": 70,
+              "competition_index": 28,
+              "competition_value": "LOW",
+              "keyword": "mes for dummies",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 90,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$15.66",
+              "Low CPC": "$2.05",
+              "avg_monthly_searches": 320,
+              "competition_index": 55,
+              "competition_value": "MEDIUM",
+              "keyword": "aegis factorylogix",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 1600,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$17.94",
+              "Low CPC": "$3.00",
+              "avg_monthly_searches": 110,
+              "competition_index": 55,
+              "competition_value": "MEDIUM",
+              "keyword": "parsec mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 140,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.85",
+              "Low CPC": "$1.31",
+              "avg_monthly_searches": 260,
+              "competition_index": 28,
+              "competition_value": "LOW",
+              "keyword": "oracle mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 260,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$10.53",
+              "Low CPC": "$1.35",
+              "avg_monthly_searches": 210,
+              "competition_index": 43,
+              "competition_value": "MEDIUM",
+              "keyword": "honeywell mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 210,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.85",
+              "Low CPC": "$0.77",
+              "avg_monthly_searches": 320,
+              "competition_index": 22,
+              "competition_value": "LOW",
+              "keyword": "factory mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 260,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$14.77",
+              "Low CPC": "$0.53",
+              "avg_monthly_searches": 320,
+              "competition_index": 54,
+              "competition_value": "MEDIUM",
+              "keyword": "best mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 390,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$8.05",
+              "Low CPC": "$0.61",
+              "avg_monthly_searches": 720,
+              "competition_index": 25,
+              "competition_value": "LOW",
+              "keyword": "mes automation",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 590,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 590,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 480,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 590,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 720,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 480,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$20.85",
+              "Low CPC": "$4.50",
+              "avg_monthly_searches": 110,
+              "competition_index": 51,
+              "competition_value": "MEDIUM",
+              "keyword": "poms mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 110,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$13.75",
+              "Low CPC": "$1.38",
+              "avg_monthly_searches": 170,
+              "competition_index": 53,
+              "competition_value": "MEDIUM",
+              "keyword": "sepasoft mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$9.06",
+              "Low CPC": "$0.85",
+              "avg_monthly_searches": 210,
+              "competition_index": 47,
+              "competition_value": "MEDIUM",
+              "keyword": "itac mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$5.20",
+              "Low CPC": "$0.76",
+              "avg_monthly_searches": 170,
+              "competition_index": 38,
+              "competition_value": "MEDIUM",
+              "keyword": "mes aveva",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 140,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.11",
+              "Low CPC": "$1.90",
+              "avg_monthly_searches": 70,
+              "competition_index": 42,
+              "competition_value": "MEDIUM",
+              "keyword": "lighthouse mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 70,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$13.49",
+              "Low CPC": "$2.30",
+              "avg_monthly_searches": 1300,
+              "competition_index": 25,
+              "competition_value": "LOW",
+              "keyword": "ge mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 8100,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 6600,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 140,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.12",
+              "Low CPC": "$1.07",
+              "avg_monthly_searches": 320,
+              "competition_index": 40,
+              "competition_value": "MEDIUM",
+              "keyword": "camstar mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 320,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$11.48",
+              "Low CPC": "$2.41",
+              "avg_monthly_searches": 110,
+              "competition_index": 47,
+              "competition_value": "MEDIUM",
+              "keyword": "apprentice mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 110,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$13.40",
+              "Low CPC": "$1.20",
+              "avg_monthly_searches": 140,
+              "competition_index": 38,
+              "competition_value": "MEDIUM",
+              "keyword": "ge proficy mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 320,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 110,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$10.22",
+              "Low CPC": "$1.69",
+              "avg_monthly_searches": 110,
+              "competition_index": 26,
+              "competition_value": "LOW",
+              "keyword": "top mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 110,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$8.03",
+              "Low CPC": "$0.87",
+              "avg_monthly_searches": 260,
+              "competition_index": 50,
+              "competition_value": "MEDIUM",
+              "keyword": "odoo mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 320,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 210,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$10.27",
+              "Low CPC": "$1.35",
+              "avg_monthly_searches": 210,
+              "competition_index": 46,
+              "competition_value": "MEDIUM",
+              "keyword": "siemens opcenter execution",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 210,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$9.37",
+              "Low CPC": "$1.41",
+              "avg_monthly_searches": 70,
+              "competition_index": 54,
+              "competition_value": "MEDIUM",
+              "keyword": "mpdv mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 90,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$25.69",
+              "Low CPC": "$1.37",
+              "avg_monthly_searches": 70,
+              "competition_index": 41,
+              "competition_value": "MEDIUM",
+              "keyword": "aspentech mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 50,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$8.90",
+              "Low CPC": "$1.28",
+              "avg_monthly_searches": 140,
+              "competition_index": 44,
+              "competition_value": "MEDIUM",
+              "keyword": "dassault mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$18.95",
+              "Low CPC": "$1.28",
+              "avg_monthly_searches": 720,
+              "competition_index": 13,
+              "competition_value": "LOW",
+              "keyword": "abb mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 4400,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 1600,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 390,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 320,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$23.84",
+              "Low CPC": "$2.32",
+              "avg_monthly_searches": 70,
+              "competition_index": 45,
+              "competition_value": "MEDIUM",
+              "keyword": "proficy mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 70,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.45",
+              "Low CPC": "$2.35",
+              "avg_monthly_searches": 50,
+              "competition_index": 40,
+              "competition_value": "MEDIUM",
+              "keyword": "ptc mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 50,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$59.95",
+              "Low CPC": "$2.76",
+              "avg_monthly_searches": 20,
+              "competition_index": 35,
+              "competition_value": "MEDIUM",
+              "keyword": "iqms mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 30,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 20,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 20,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 20,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 10,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 20,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 20,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 40,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 10,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 20,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 20,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$18.71",
+              "Low CPC": "$3.33",
+              "avg_monthly_searches": 110,
+              "competition_index": 49,
+              "competition_value": "MEDIUM",
+              "keyword": "eyelit mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 90,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.93",
+              "Low CPC": "$1.59",
+              "avg_monthly_searches": 90,
+              "competition_index": 37,
+              "competition_value": "MEDIUM",
+              "keyword": "mapex mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 90,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$13.16",
+              "Low CPC": "$1.00",
+              "avg_monthly_searches": 170,
+              "competition_index": 44,
+              "competition_value": "MEDIUM",
+              "keyword": "opcenter mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$6.91",
+              "Low CPC": "$0.85",
+              "avg_monthly_searches": 50,
+              "competition_index": 23,
+              "competition_value": "LOW",
+              "keyword": "mes oracle",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 50,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$11.29",
+              "Low CPC": "$3.19",
+              "avg_monthly_searches": 40,
+              "competition_index": 45,
+              "competition_value": "MEDIUM",
+              "keyword": "objective mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 30,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 30,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 30,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 40,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 40,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$6.23",
+              "Low CPC": "$0.41",
+              "avg_monthly_searches": 90,
+              "competition_index": 35,
+              "competition_value": "MEDIUM",
+              "keyword": "mes in production",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 70,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$9.21",
+              "Low CPC": "$1.10",
+              "avg_monthly_searches": 140,
+              "competition_index": 36,
+              "competition_value": "MEDIUM",
+              "keyword": "opcenter execution",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$0.00",
+              "Low CPC": "$0.00",
+              "avg_monthly_searches": 40,
+              "competition_index": 7,
+              "competition_value": "LOW",
+              "keyword": "mes ppt",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 20,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 30,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 30,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 30,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$5.78",
+              "Low CPC": "$1.06",
+              "avg_monthly_searches": 110,
+              "competition_index": 4,
+              "competition_value": "LOW",
+              "keyword": "mes ge",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 110,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$12.85",
+              "Low CPC": "$3.99",
+              "avg_monthly_searches": 110,
+              "competition_index": 25,
+              "competition_value": "LOW",
+              "keyword": "mes machine",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 70,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 70,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 90,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$7.10",
+              "Low CPC": "$0.93",
+              "avg_monthly_searches": 170,
+              "competition_index": 29,
+              "competition_value": "LOW",
+              "keyword": "camstar siemens",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$0.00",
+              "Low CPC": "$0.00",
+              "avg_monthly_searches": 40,
+              "competition_index": 4,
+              "competition_value": "LOW",
+              "keyword": "goto mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 30,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 30,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 30,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 40,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 30,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 40,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 30,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 20,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 50,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$0.00",
+              "Low CPC": "$0.00",
+              "avg_monthly_searches": 880,
+              "competition_index": 0,
+              "competition_value": "LOW",
+              "keyword": "mes apriso",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 720,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 880,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 880,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 880,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$3.18",
+              "Low CPC": "$0.46",
+              "avg_monthly_searches": 210,
+              "competition_index": 8,
+              "competition_value": "LOW",
+              "keyword": "mes download",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 390,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 140,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 140,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$6.64",
+              "Low CPC": "$0.08",
+              "avg_monthly_searches": 210,
+              "competition_index": 2,
+              "competition_value": "LOW",
+              "keyword": "new mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 170,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 260,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 210,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 260,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 170,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 210,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 170,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$1.64",
+              "Low CPC": "$0.49",
+              "avg_monthly_searches": 110,
+              "competition_index": 84,
+              "competition_value": "HIGH",
+              "keyword": "pro mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 90,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 140,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 110,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 110,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 90,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 110,
+                  "year": 2025
+                }
+              ]
+            },
+            {
+              "High CPC": "$5.43",
+              "Low CPC": "$1.85",
+              "avg_monthly_searches": 50,
+              "competition_index": 17,
+              "competition_value": "LOW",
+              "keyword": "total mes",
+              "monthly_search_volumes": [
+                {
+                  "month": "JULY",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "AUGUST",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "SEPTEMBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "OCTOBER",
+                  "searches": 40,
+                  "year": 2024
+                },
+                {
+                  "month": "NOVEMBER",
+                  "searches": 30,
+                  "year": 2024
+                },
+                {
+                  "month": "DECEMBER",
+                  "searches": 50,
+                  "year": 2024
+                },
+                {
+                  "month": "JANUARY",
+                  "searches": 30,
+                  "year": 2025
+                },
+                {
+                  "month": "FEBRUARY",
+                  "searches": 40,
+                  "year": 2025
+                },
+                {
+                  "month": "MARCH",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "APRIL",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "MAY",
+                  "searches": 50,
+                  "year": 2025
+                },
+                {
+                  "month": "JUNE",
+                  "searches": 40,
+                  "year": 2025
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "versionId": "2603a741-fc0a-4bc6-a2aa-d6e80f1a1923",
+  "triggerCount": 1,
+  "tags": [],
+  "parentFolder": null,
+  "homeProject": {
+    "id": "ou4Nvt7FDFTq9SV6",
+    "type": "personal",
+    "name": "Mohammed Sinan P  <sinanpathiyil2003@gmail.com>",
+    "icon": null
+  },
+  "sharedWithProjects": [],
+  "usedCredentials": [],
+  "scopes": [
+    "workflow:create",
+    "workflow:delete",
+    "workflow:execute",
+    "workflow:list",
+    "workflow:move",
+    "workflow:read",
+    "workflow:share",
+    "workflow:update"
+  ]
+}
