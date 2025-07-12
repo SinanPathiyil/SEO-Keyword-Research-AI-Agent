@@ -70,8 +70,7 @@ Here’s an example of the ranked SEO keyword table returned by the agent:
 
 ## 📹 Video Demo
 
-
-![Watch Demo](/assets/demo.mp4)
+[![Watch Demo](https://github.com/SinanPathiyil/SEO-Keyword-Research-AI-Agent/blob/main/assets/result1.p)](https://github.com/SinanPathiyil/SEO-Keyword-Research-AI-Agent/blob/main/assets/result1.p)
 
 ---
 
